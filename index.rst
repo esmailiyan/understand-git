@@ -14,4 +14,10 @@
 
 	book/01.whatis
 	book/02.init
-
+	book/03.walk
+	book/04.merge
+	book/05.tags
+	book/06.branches
+	book/07.merge2
+	book/08.remote
+	book/09.end
