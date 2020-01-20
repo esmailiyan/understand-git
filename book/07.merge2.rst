@@ -1,3 +1,178 @@
 انواع ترکیب و برطرف کردن تداخل
 ==============================
 
+ترکیب fast-forward
+------------------
+حالت زیر را در نظر بگیرید
+::
+	A---B---C(HEAD)---D---E---F
+فرض کنید که می خواهیم C,F را با هم ترکیب کنیم. در این حالت راس جدیدی ایجاد نمی شود
+(و در نتیجه محتوای پیامی که با -m مشخص کردیم ایگنور می شود.)
+و تنها HEAD به راس F منتقل می شود. یعنی::
+	A---B---C---D---E---F(HEAD)
+
+در حالت برعکس ( یعنی بخواهیم F را با C ترکیب کنیم و HEAD روی F است )
+گیت به ما پیام ``Already up to date`` می دهد و نه HEAD تکان می خورد
+و نه کامیت جدیدی ایجاد می شود.
+
+برطرف کردن conflict
+-------------------
+برای بررسی دقیق تر کانفلیکت یک پوشه جدید بسازید و در آن یک مخزن گیت با git init
+ایجاد کنید. یک فایل project بسازید و درون آن متن زیر را بنویسید::
+	In file kholase i az prozhe ast
+	file haye daroone in prozhe:
+	felan hichi
+	jame khat haye in prozhe:
+	0
+سپس این فایل را کامیت کنید. سپس دو شاخه A,B بسازید. در شاخه A یک فایل با نام
+fileA بسازید که ۵ خطی باشد و فایل project را به زیر تغییر دهید::
+	In file kholase i az prozhe ast
+	file haye daroone in prozhe:
+	fileA
+	jame khat haye in prozhe:
+	5
+سپس شاخه B را چک اوت کنید و به طور مشابه درون آن یک fileB که ۷ خط دارد بسازید
+و فایل project را هم مانند بالا تغییر دهید و کامیت کنید. اگر فرایند بالا را
+درست انجام داده باشید، خروجی
+``git log --graph --reflog``
+باید به شکل زیر باشد::
+	* commit 010fafcfeebceb685b0e43f0f1fbdc662dd59d87 (HEAD -> B)
+	| Author: HKalbasi <kalbasi@ce.sharif.edu>
+	| Date:   Wed Jan 1 16:48:13 2020 +0330
+	| 
+	|     add fileB
+	|   
+	| * commit ec951dd90f1b9519341d88fcf67e38d63594ab7d (A)
+	|/  Author: HKalbasi <kalbasi@ce.sharif.edu>
+	|   Date:   Wed Jan 1 16:41:59 2020 +0330
+	|   
+	|       add fileA
+	| 
+	* commit 598476b792807802950c3d82a914025849caeb0a (master)
+	Author: HKalbasi <kalbasi@ce.sharif.edu>
+	Date:   Wed Jan 1 16:39:35 2020 +0330
+	      shoroo e proje        
+حال سعی می کنیم که این شاخه های جدید را در شاخه master ترکیب کنیم. فرمان های زیر
+را می زنیم::
+	git checkout master
+	git merge A -m "merge A into master"
+نتیجه یک ترکیب fast-forward و بدون درد سر است.
+::
+	Updating 598476b..ec951dd
+	Fast-forward (no commit created; -m option ignored)
+	  fileA   | 5 +++++
+	  project | 4 ++--
+	  2 files changed, 7 insertions(+), 2 deletions(-)
+	  create mode 100644 fileA
+حال سراغ مرج کردن شاخه 
+B
+می رویم::
+	git merge B -m "merge B into master"
+همان طور که انتظار می رفت به 
+conflict
+خوردیم::
+	Auto-merging project
+	CONFLICT (content): Merge conflict in project
+	Automatic merge failed; fix conflicts and then commit the result.        
+رفع کانفلیکت در گیت کار سختی نیست. ابتدا با دستور
+``git status``
+وضعیت فایل های تغییر داده شده را می بینیم::
+	On branch master
+	You have unmerged paths.
+	  (fix conflicts and run "git commit")
+	  (use "git merge --abort" to abort the merge)
+
+	Changes to be committed:
+
+	  new file:   fileB
+
+	Unmerged paths:
+	  (use "git add &lt;file&gt;..." to mark resolution)
+
+	  both modified:   project        
+
+می بینیم که علت کانفلیکت این است که فایل project توسط هر دو راس تغییر داده شده است
+آن را با ادیتور متنی محبوبمان باز می کنیم. محتوا احتمالا به شکل زیر است::
+	In file kholase i az prozhe ast
+	file haye daroone in prozhe:
+	&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+	fileA
+	jame khat haye in prozhe:
+	5
+	=======
+	fileB
+	jame khat haye in prozhe:
+	7
+	&gt;&gt;&gt;&gt;&gt;&gt;&gt; B        
+گیت قسمت هایی از فایل را که توسط هر دو شاخه تغییر کرده است را
+به ما نشان می دهد تا راحت تر بررسی کنیم چه اتفاقی افتاده است.
+بعد از بررسی فایل،
+مقدار آن را به زیر تغییر می دهیم::
+	In file kholase i az prozhe ast
+	file haye daroone in prozhe:
+	fileA
+	fileB
+	jame khat haye in prozhe:
+	12        
+سپس با فرمان های زیر عملیات ترکیب را کامل می کنیم.
+::
+	git add project
+	git commit -m "merge B to master"
+اکنون عملیات ترکیب کامل است
+و گراف به شکل زیر است::
+	*   commit de2e6862abca6081aca9b8fcbd2ed79c71986253 (HEAD -> master)
+	|\  Merge: ec951dd 010fafc
+	| | Author: HKalbasi <kalbasi@ce.sharif.edu>
+	| | Date:   Wed Jan 1 17:23:03 2020 +0330
+	| | 
+	| |     merge B to master
+	| | 
+	| * commit 010fafcfeebceb685b0e43f0f1fbdc662dd59d87 (B)
+	| | Author: HKalbasi <kalbasi@ce.sharif.edu>
+	| | Date:   Wed Jan 1 16:48:13 2020 +0330
+	| | 
+	| |     add fileB
+	| | 
+	* | commit ec951dd90f1b9519341d88fcf67e38d63594ab7d (A)
+	|/  Author: HKalbasi <kalbasi@ce.sharif.edu>
+	|   Date:   Wed Jan 1 16:41:59 2020 +0330
+	|   
+	|       add fileA
+	| 
+	* commit 598476b792807802950c3d82a914025849caeb0a
+	Author: HKalbasi <kalbasi@ce.sharif.edu>
+	Date:   Wed Jan 1 16:39:35 2020 +0330
+	
+		shoroo e proje        
+دیگر به شاخه های A,B نیازی نداریم و آن ها را پاک می کنیم.
+::
+	git branch -d A
+	git branch -d B
+
+.. tip::
+	اگر در فرایند ترکیب فایل اشتباهی را تغییر دادید یا از ترکیب پشیمان شدید
+	با فرمان ``git merge --abort`` می توانید ترکیب را متوقف کنید. اگر چه که
+	هیچ وقت وضعیت قبلی را از دست نمی دهید و حتی اگر ترکیب را با فایل های
+	اشتباه کامیت کنید می توانید شاخه را به راس قبل برگردانید و مجددا برای
+	ترکیب تلاش کنید.
+
+چگونه از conflict جلوگیری کنیم؟
+-------------------------------
+اگر چه در پروژه هایی با مشارکت کنندگان هم زمان زیاد
+conflict
+اجتناب ناپذیر است اما می توان تعداد و پیچیدگی آن ها را به حداقل رساند.
+
+تعداد فایل ها را زیاد کنید
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+هر قدر که تعداد فایل ها بیشتر کنید و اندازه آن ها کمتر باشد
+احتمال این که دو نفر مجبور شوند روی یک فایل کار کنند کمتر است.
+
+شاخه خود را به روز نگه دارید
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+فرض کنید روی یک قابلیت کار می کنید که توسعه آن یک ماه زمان می برد.
+اگر در این یک ماه با شاخه هدف هیچ کاری نداشته باشید، انتهای این یک ماه
+که می خواهید شاخه خود را با شاخه هدف ترکیب کنید، احتمالا به یک کانفلیکت
+بزرگ خواهید خورد که برطرف کردن آن دردسر است. اما اگر در بازه های زمانی
+کوچک، مثلا هر روز شاخه هدف را در شاخه خود ترکیب کنید این عملیات
+ها خودکار یا با کانفلیکت های بسیار کوچک انجام می شوند و در نهایت نیز
+یک ترکیب بی دردسر خواهید داشت.
